@@ -31,6 +31,7 @@ fun ReaderPageActionsDialog(
     onSetAsCover: () -> Unit,
     onShare: (Boolean) -> Unit,
     onSave: () -> Unit,
+    onOCR: () -> Unit
 ) {
     var showSetCoverDialog by remember { mutableStateOf(false) }
 
@@ -39,6 +40,15 @@ fun ReaderPageActionsDialog(
             modifier = Modifier.padding(vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         ) {
+            ActionButton(
+                modifier = Modifier.weight(1f),
+                title = stringResource(MR.strings.help_translate),
+                icon = Icons.Outlined.Photo,
+                onClick = {
+                    onOCR()
+                    onDismissRequest()
+                },
+            )
             ActionButton(
                 modifier = Modifier.weight(1f),
                 title = stringResource(MR.strings.set_as_cover),

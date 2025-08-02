@@ -1,7 +1,13 @@
 package eu.kanade.tachiyomi.ui.reader
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import androidx.annotation.IntRange
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
@@ -79,6 +85,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
 import java.util.Date
+import androidx.core.graphics.createBitmap
 
 /**
  * Presenter used by the activity to perform background operations.
