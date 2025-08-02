@@ -8,7 +8,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
@@ -45,18 +44,15 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewModelScope
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import com.google.android.material.elevation.SurfaceColors
 import com.google.android.material.transition.platform.MaterialContainerTransform
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import com.hippo.unifile.UniFile
 import dev.chrisbanes.insetter.applyInsetter
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.reader.DisplayRefreshHost
+import eu.kanade.presentation.reader.OCRTextSelectDialog
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.PageIndicatorText
 import eu.kanade.presentation.reader.ReaderContentOverlay
@@ -106,6 +102,8 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.ocr.model.ImageInput
+import tachiyomi.domain.ocr.service.OCRService
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -146,6 +144,8 @@ class ReaderActivity : BaseActivity() {
     private val windowInsetsController by lazy { WindowInsetsControllerCompat(window, binding.root) }
 
     private var loadingIndicator: ReaderProgressIndicator? = null
+
+    private val ocrService = Injekt.get<OCRService>()
 
     var isScrollingThroughPages = false
         private set
@@ -496,6 +496,17 @@ class ReaderActivity : BaseActivity() {
                         onOCR = ::executeOCR
                     )
                 }
+                is ReaderViewModel.Dialog.OCRTextSelect -> {
+                    OCRTextSelectDialog(
+                        onDismissRequest = onDismissRequest,
+                        textBlocks = (state.dialog as ReaderViewModel.Dialog.OCRTextSelect).textBlocks,
+                        onBlockClick = { block ->
+                            menuToggleToast?.cancel()
+                            menuToggleToast = toast("Text copied")
+                            copyOCRText(block)
+                        }
+                    )
+                }
                 null -> {}
             }
         }
@@ -537,19 +548,12 @@ class ReaderActivity : BaseActivity() {
         val bitmap = createBitmap(view.width, view.height)
         PixelCopy.request(window, Rect(0, 0, view.width, view.height), bitmap, { result ->
             if (result == PixelCopy.SUCCESS) {
-                val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-                val image: InputImage
-                try {
-                    image = InputImage.fromBitmap(bitmap, 0)
-                    textRecognizer.process(image)
-                        .addOnSuccessListener { result ->
-                            toast(result.text)
-                        }
-                        .addOnFailureListener { e ->
-                            toast(e.message)
-                        }
-                } catch (e: Throwable) {
-                    logcat(LogPriority.ERROR, e)
+                lifecycleScope.launchNonCancellable {
+                    val stream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                    val imageInput = ImageInput(bitmap.width, bitmap.height, stream.toByteArray())
+                    val result = ocrService.getTextBlocks(imageInput)
+                    viewModel.openOCRTextSelectDialog(result)
                 }
             }
         }, Handler(Looper.getMainLooper()))
@@ -775,6 +779,12 @@ class ReaderActivity : BaseActivity() {
     private fun onCopyImageResult(uri: Uri) {
         val clipboardManager = applicationContext.getSystemService<ClipboardManager>() ?: return
         val clipData = ClipData.newUri(applicationContext.contentResolver, "", uri)
+        clipboardManager.setPrimaryClip(clipData)
+    }
+
+    private fun copyOCRText(text: String) {
+        val clipboardManager = applicationContext.getSystemService<ClipboardManager>() ?: return
+        val clipData = ClipData.newPlainText("", text)
         clipboardManager.setPrimaryClip(clipData)
     }
 

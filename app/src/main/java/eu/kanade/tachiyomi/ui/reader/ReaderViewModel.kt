@@ -1,13 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader
 
 import android.app.Application
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Rect
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
-import android.view.PixelCopy
 import androidx.annotation.IntRange
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
@@ -79,13 +73,13 @@ import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.ocr.model.TextBlock
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
 import java.util.Date
-import androidx.core.graphics.createBitmap
 
 /**
  * Presenter used by the activity to perform background operations.
@@ -792,6 +786,10 @@ class ReaderViewModel @JvmOverloads constructor(
         mutableState.update { it.copy(dialog = Dialog.Settings) }
     }
 
+    fun openOCRTextSelectDialog(textBlocks: List<TextBlock>) {
+        mutableState.update { it.copy(dialog = Dialog.OCRTextSelect(textBlocks)) }
+    }
+
     fun closeDialog() {
         mutableState.update { it.copy(dialog = null) }
     }
@@ -981,6 +979,7 @@ class ReaderViewModel @JvmOverloads constructor(
         data object Settings : Dialog
         data object ReadingModeSelect : Dialog
         data object OrientationModeSelect : Dialog
+        data class OCRTextSelect(val textBlocks: List<TextBlock>) : Dialog
         data class PageActions(val page: ReaderPage) : Dialog
     }
 
